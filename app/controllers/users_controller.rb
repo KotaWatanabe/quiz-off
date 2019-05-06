@@ -1,6 +1,7 @@
 class UsersController < ApplicationController
   before_action :authenticate_user!, only: [:edit, :update, :change_password, :update_password, :dashboard]
-  before_action :find_user, only: [:edit, :update, :change_password, :update_password, :dashboard]
+  before_action :find_user, only: [:edit, :update, :change_password, :update_password]
+  #before_action :authorize, only: [:dashboard]
 
   def new
     @user = User.new
@@ -8,11 +9,10 @@ class UsersController < ApplicationController
 
   def create
     @user = User.new user_params
-    
+
     if @user.save
       session[:user_id] = @user.id
       flash[:success] = "Registion successful!"
-      session[:user_id] = @user.id
       redirect_to root_path
     else
       render :new
@@ -51,8 +51,13 @@ class UsersController < ApplicationController
 
   def dashboard
     @quizzes = Quiz.order(created_at: :desc)
-    @created_quizzes = Quiz.order(created_at: :desc).where( user_id: @user.id )
-    @attempted_quizzes = Attempt.order(created_at: :desc).where( user_id: @user.id )
+    #only grab created quizzes if a instructor is logged in
+    if current_user.role == 1
+      @created_quizzes = Quiz.order(created_at: :desc).where(user: current_user)
+    end
+    #grab attempted quizzes for both instructors and students
+    @attempted_quizzes = Attempt.order(created_at: :desc).where(user: current_user)
+    # byebug
   end
 
   private
@@ -80,4 +85,12 @@ class UsersController < ApplicationController
     end
   end
   
+  def authorize
+    unless can?(:crud, @user) do
+      flash[:danger] = 'Not Authorized' 
+      redirect_to root_path
+    end
+  end
+  
+end
 end
